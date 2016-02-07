@@ -10,5 +10,5 @@ The idea is to develop an app through will project teams can collaborate on wide
 
 ## Goal
 
-The goal is to create simple, effective and lean *single page* application to make our day jobs more fruitful and rewarding. Keeping sync between teams regarding conventions will help maintaining code and architecture in long run.
+The goal is to create simple, effective and lean **single page application** to make our day jobs more fruitful and rewarding. Keeping sync between teams regarding conventions will help maintaining code and architecture in long run.
 
