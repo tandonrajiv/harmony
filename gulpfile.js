@@ -1,6 +1,7 @@
 /* Needed gulp config */
 var gulp = require('gulp');
-// var sass = require('gulp-sass');
+var sass = require('gulp-sass');
+
 
 var uglify = require('gulp-uglify');
 var rename = require('gulp-rename');
@@ -8,16 +9,18 @@ var rename = require('gulp-rename');
 
 
 
-var minifycss = require('gulp-minify-css');
+// var minifycss = require('gulp-minify-css');
+var cssnano = require('gulp-cssnano');
 var concat = require('gulp-concat');
 var plumber = require('gulp-plumber');
 var browserSync = require('browser-sync');
 var reload = browserSync.reload;
 var nodemon = require('gulp-nodemon');
+var mocha = require('gulp-mocha');
 // var compass = require('compass-importer');
 
 // var series = require('stream-series');
-// var sequence = require('gulp-sequence');
+var sequence = require('gulp-sequence');
 
 
 // var inject = require('gulp-inject');
@@ -25,11 +28,10 @@ var nodemon = require('gulp-nodemon');
 
 // var config = {
 
-//   sassOptions: {
-//     errLogToConsole: true,
-//     outputStyle: 'expanded',
-//     importer: compass
-//   },
+var sassOptions = {
+  errLogToConsole: true,
+  outputStyle: 'expanded'
+};
 
 //   jsStream: gulp.src(['public/build/js/*.js'], {
 //     read: false
@@ -66,7 +68,7 @@ var nodemon = require('gulp-nodemon');
 gulp.task('vendor-scripts', function() {
   return gulp.src([
       /* Add your JS files here, they will be combined in this order */
-      'public/js/app.js'
+      'public/scripts/app.js'
     ])
     .pipe(concat('bundle_v_'))
     .pipe(rename({
@@ -77,20 +79,21 @@ gulp.task('vendor-scripts', function() {
     .pipe(reload({
       stream: true
     }));
+
 });
 
 /* Scripts task */
-gulp.task('scripts', function() {
+gulp.task('scripts', function(cb) {
   return gulp.src([
       /* Add your JS files here, they will be combined in this order */
-      'public/js/app.js'
+      './public/scripts/app.js'
     ])
     .pipe(concat('bundle_c_'))
     .pipe(rename({
       suffix: '.min.js'
     }))
     .pipe(uglify())
-    .pipe(gulp.dest('public/build/js'))
+    .pipe(gulp.dest('./public/build/js'))
     .pipe(reload({
       stream: true
     }));
@@ -98,20 +101,61 @@ gulp.task('scripts', function() {
 
 
 /* Sass task */
-gulp.task('sass', function() {
-  gulp.src('public/scss/style.scss')
-    .pipe(plumber())
+gulp.task('css', function(cb) {
+  return gulp.src('./public/styles/style.css')
+    .pipe(plumber({
+      handleError: function(err) {
+        console.log(err);
+        this.emit('end');
+      }
+    }))
     .pipe(gulp.dest('public/build/css'))
     .pipe(rename({
       suffix: '.min'
     }))
-    .pipe(minifycss())
+    .pipe(cssnano())
     .pipe(gulp.dest('public/build/css'))
     /* Reload the browser CSS after every change */
     .pipe(reload({
       stream: true
     }));
 });
+
+gulp.task('sass', function() {
+  return gulp.src('public/styles/a.scss')
+    .pipe(plumber({
+      errorHandler: function(err) {
+        console.log('Error occurred', err);
+        this.emit('end');
+      }
+    }))
+    .pipe(sass(sassOptions))
+    .pipe(gulp.dest('public/build/css'))
+    .pipe(rename({
+      suffix: '.min'
+    }))
+    .pipe(cssnano())
+    .pipe(gulp.dest('public/build/css'))
+    .pipe(reload({
+      stream: true
+    }));
+});
+
+gulp.task('vendor-css', function() {
+  gulp.src('public/styles/style.css')
+    .pipe(plumber())
+    .pipe(gulp.dest('public/build/css'))
+    .pipe(rename({
+      suffix: '.min'
+    }))
+    .pipe(cssnano())
+    .pipe(gulp.dest('public/build/css'))
+    /* Reload the browser CSS after every change */
+    .pipe(reload({
+      stream: true
+    }));
+});
+
 
 /* Reload task */
 gulp.task('bs-reload', function() {
@@ -120,7 +164,7 @@ gulp.task('bs-reload', function() {
 
 /* Prepare Browser-sync for localhost */
 gulp.task('browser-sync', ['nodemon'], function() {
-  browserSync.init(['css/*.css', 'js/*.js'], {
+  browserSync.init(['styles/*.css', 'scripts/*.js'], {
     /*
     I like to use a vhost, WAMP guide: https://www.kristengrote.com/blog/articles/how-to-set-up-virtual-hosts-using-wamp, XAMP guide: http://sawmac.com/xampp/virtualhosts/
     */
@@ -140,11 +184,10 @@ gulp.task('browser-sync', ['nodemon'], function() {
 });
 
 gulp.task('nodemon', function(cb) {
-  console.log('cb', cb);
   var started = false;
 
   return nodemon({
-    script: './www',
+    script: './bin/www',
     ignore: ['public', 'node_modules']
   }).on('start', function() {
     // to avoid nodemon being started multiple times
@@ -156,13 +199,40 @@ gulp.task('nodemon', function(cb) {
   });
 });
 
+gulp.task('test', function(cb) {
+  var error = false;
+  gulp
+    .src('./test/test.js')
+    .pipe(mocha())
+    .on('error', function() {
+      console.log('Tests failed!');
+      error = true;
+    })
+    .on('end', function() {
+      if (!error) {
+        console.log('Tests succeeded! Go ahead mitron \n');
+        process.exit(0);
+
+      }
+    });
+});
+
+
+gulp.task('build', ['css', 'scripts', 'sass'], function(cb) {
+  // sequence(, cb);
+  console.log('Gulp build complete - Go ahead mitron \n');
+});
+
 /* Watch scss, js and html files, doing different things with each. */
 
 gulp.task('default', ['browser-sync'], function() {
   /* Watch scss, run the sass task on change. */
-  gulp.watch(['public/scss/*.scss', 'public/scss/**/*.scss'], ['sass']);
+  gulp.watch(['public/styles/*.css'], ['css']);
+  gulp.watch(['public/styles/a.scss'], ['sass']);
   /* Watch app.js file, run the scripts task on change. */
-  gulp.watch(['public/js/app.js'], ['scripts']);
+  gulp.watch(['public/scripts/app.js'], ['scripts']);
   /* Watch .html files, run the bs-reload task on change. */
   gulp.watch(['*.html'], ['bs-reload']);
+
+  gulp.watch(['public/scripts/*.js'], ['test']);
 });
